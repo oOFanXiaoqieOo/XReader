@@ -1,0 +1,59 @@
+@font-face {
+  font-family: 'icomoon';
+  src:  url('fonts/icomoon.eot?6pntn0');
+  src:  url('fonts/icomoon.eot?6pntn0#iefix') format('embedded-opentype'),
+  url('fonts/icomoon.ttf?6pntn0') format('truetype'),
+  url('fonts/icomoon.woff?6pntn0') format('woff'),
+  url('fonts/icomoon.svg?6pntn0#icomoon') format('svg');
+  font-weight: normal;
+  font-style: normal;
+}
+
+[class^="icon-"], [class*=" icon-"] {
+  /* use !important to prevent issues with browser extensions that change fonts */
+  font-family: 'icomoon' !important;
+  speak: none;
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+
+  /* Better Font Rendering =========== */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.icon-home:before {
+  content: "\e900";
+}
+.icon-quill:before {
+  content: "\e907";
+}
+.icon-books:before {
+  content: "\e920";
+}
+.icon-search:before {
+  content: "\e986";
+}
+.icon-list:before {
+  content: "\e9ba";
+}
+.icon-attachment:before {
+  content: "\e9cd";
+}
+.icon-star-empty:before {
+  content: "\e9d7";
+}
+.icon-star-full:before {
+  content: "\e9d9";
+}
+.icon-circle-right:before {
+  content: "\ea42";
+}
+.icon-circle-left:before {
+  content: "\ea44";
+}
+.icon-font-size:before {
+  content: "\ea61";
+}
