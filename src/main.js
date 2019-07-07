@@ -5,11 +5,11 @@ import App from './App'
 import router from './router'
 import './assets/styles/icon.css'
 Vue.config.productionTip = false
-import EBook from './Ebook.vue'
+//import EBook from './Ebook.vue'
 /* eslint-disable no-new */
 new Vue({
-  el: '#ebook',
+  el: '#app',
   router,
-  components: { EBook },
-  template: '<EBook/>'
+  components: { App },
+  template: '<App/>'
 })
