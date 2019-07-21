@@ -53,7 +53,6 @@
         </mu-list-item>
       </mu-list>
     </mu-drawer>
-
     <mu-drawer class="theme-drawer" right :open="isThemeShow" :docked="false" @close="themetoggle()">
       <div class="lable">文本大小:
         <mu-button color="gray" @click=fontSizeAdd()>
@@ -96,7 +95,7 @@
     <transition name="slide-up">
 
       <div v-show="isMenuShow" class="menu-wrapper">
-        <div class ="left">
+        <div class="left">
           <input class="progress"
                  type="range"
                  max="100"
@@ -113,7 +112,8 @@
             <span class="icon-books" @click=booktoggle()></span>
           </div>
           <div class="icon-wrapper">
-            <span class="icon-share2" @click=test()></span>
+            <span class="icon-share2" @click=loadLocalBook></span>
+            <span class="icon-share2" @click=loadBook></span>
           </div>
         </div>
       </div>
@@ -127,18 +127,24 @@
         </mu-list-item>
       </mu-list>
     </mu-drawer>
+    <input id="fileInput" type="file" style="visibility:hidden" @onchange=addFile()>
+
   </div>
+
 </template>
 
 <script>
   import Epub from 'epubjs'
-
-  const DOWNLOAD_URL = 'static/三体.epub'
+  import bookDb from './util/bookDb2'
+  var BOOK_URL = ''
   global.ePub = Epub
+  let g_store
 
-  //const Epub = window.ePub
-  const EPUBJS = window.EPUBJS
-  //const QiuPen = window.QiuPen
+  var inputObj = document.createElement('input')
+  inputObj.setAttribute('id', 'fileInput');
+  inputObj.setAttribute('type', 'file');
+  inputObj.setAttribute("style", 'visibility:hidden');
+  document.body.appendChild(inputObj);
 
 
   export default {
@@ -150,12 +156,19 @@
         isMarkShow: false,
         isThemeShow: false,
         isBookShow: false,
-        bookAvailable:false,
+        bookAvailable: false,
         curPage: -1,
-        progress:-1,
+        progress: -1,
         themeID: 0,
+        currentBookURL: '',
+        defaultBookURL: 'static/三体.epub',
+        bookName:'',//当前打开的书名
         toc: [],
         tt: -1,
+        userName:'local',//默认用户名
+        loginFlag:false,//登陆状态
+        DB_NAME:'XReader',
+        DB_OBJECT:'Book',
         bookMark: [],
         themeList: [
           {
@@ -226,66 +239,80 @@
             name: '空',
             path: '/',
           }
-        ]
+        ],
+        selectBook: '',
       }
     },
     methods: {
       // 电子书解析和渲染
       init() {
-        this.book.on('renderer:chapterDisplayed', () => {
-          // this.info.page = 1
-          // 创建动态脚本
-          function createScript(url) {
-            var script = document.createElement('script')
-            script.type = 'text/javascript'
-            script.src = url
-            return script
-          }
-
-          // 创建动态样式表
-          function createLink(url) {
-            var link = document.createElement('link')
-            link.rel = 'stylesheet'
-            link.type = 'text/css'
-            link.href = url
-            return link
-          }
-
-          var link = createLink('/static/epub/common.css')
-          var script = createScript('/static/epub/selection.js')
-          var iframe = document.getElementsByTagName('iframe')[0]
-          iframe.contentDocument.head.appendChild(link)
-          iframe.contentDocument.body.appendChild(script)
-
-        })
-
-
-        this.book.on('book:pageChanged', function (location) {
-          console.log(location.anchorPage, location.pageRange)
-          console.log("cccc")
-        })
-        this.book.on('renderer:locationChanged', locationCfi => {
-          this.locationCfi = locationCfi
-          console.log("cccc")
-        })
-        this.book.on('renderer:mouseup', function (event) {
-          //释放后检测用户选中的文字
-          console.log("cccc")
-          var render = this.book.renderer.render;
-          var selectedContent = render.window.getSelection();
-          self.selection = selectedContent;
-          //若当前用户不在选中状态，并且选中文字不为空
-          if (self.selected == false) {
-            if (selectedContent.toString() && (selectedContent.toString() != "")) {
-              self.selected = true;
-            }
-          }
-        });
+        BOOK_URL = this.defaultBookURL
+//        this.book.on('renderer:chapterDisplayed', () => {
+//          // this.info.page = 1
+//          // 创建动态脚本
+//          function createScript(url) {
+//            var script = document.createElement('script')
+//            script.type = 'text/javascript'
+//            script.src = url
+//            return script
+//          }
+//
+//          // 创建动态样式表
+//          function createLink(url) {
+//            var link = document.createElement('link')
+//            link.rel = 'stylesheet'
+//            link.type = 'text/css'
+//            link.href = url
+//            return link
+//          }
+//
+//          var link = createLink('/static/epub/common.css')
+//          var script = createScript('/static/epub/selection.js')
+//          var iframe = document.getElementsByTagName('iframe')[0]
+//          iframe.contentDocument.head.appendChild(link)
+//          iframe.contentDocument.body.appendChild(script)
+//
+//        })
+//
+//
+//        this.book.on('book:pageChanged', function (location) {
+//          console.log(location.anchorPage, location.pageRange)
+//          console.log("cccc")
+//        })
+//        this.book.on('renderer:locationChanged', locationCfi => {
+//          this.locationCfi = locationCfi
+//          console.log("cccc")
+//        })
+//        this.book.on('renderer:mouseup', function (event) {
+//          //释放后检测用户选中的文字
+//          console.log("cccc")
+//          var render = this.book.renderer.render;
+//          var selectedContent = render.window.getSelection();
+//          self.selection = selectedContent;
+//          //若当前用户不在选中状态，并且选中文字不为空
+//          if (self.selected == false) {
+//            if (selectedContent.toString() && (selectedContent.toString() != "")) {
+//              self.selected = true;
+//            }
+//          }
+//        });
       },
-      showEpub() {
+      login(account,pwd){
+        //用户登陆
+        this.loginFlag = true
+      },
+      logout(){
+        //当前账户登出，清空书签和批注
+        this.loginFlag = false
+      },
+      loadBook() {
         // 生成Ebook
-        this.book = new Epub(DOWNLOAD_URL)
-        console.log(this.book)
+        if(this.book){
+          this.closeBook()
+        }
+
+        this.book = new Epub(BOOK_URL)
+        this.bookName = BOOK_URL.substring(BOOK_URL.lastIndexOf('/') + 1)
         // 生成Rendition,通过Book.renderTo方法生成
         this.rendition = this.book.renderTo('read', {
           width: window.innerWidth,
@@ -321,7 +348,6 @@
           // 标记电子书为解析完毕状态
 
           this.bookAvailable = true
-          bookAvailable = this.bookAvailable
         })
 
 
@@ -331,10 +357,68 @@
           this.rendition.themes.register(theme.name, theme.style)
         })
         // 设置初始字体大小
+        //this.rendition.themes.register(this.fontList)
+        //this.rendition.themes.font(this.fontStyle.font)
         //this.setFontSize(this.fontStyle.fontSize)
 
 
         //this.openFileIIs()
+        this.curPage = -1
+
+        this.indexDbOpen()
+        this.loadBookMark()
+      },
+      closeBook(){
+        this.book.destroy()   //关闭书本
+        this.toc.length =0    //清空目录
+        this.bookMark.length =0   //书签清空
+
+      },
+      indexDbOpen()
+      {
+        bookDb.init(() => {
+
+        })
+      },
+      loadBookMark(){//加载书签
+        if(this.loginFlag)
+        {//从indexDB获取书签
+          var index = [
+            this.userName,
+           this.bookName,
+          ]
+          console.log(index)
+          bookDb.openDB(bookDb.DB_NAME,bookDb.BOOKMARK_OBJECT,1,()=>{
+            //this.bookMark = JSON.parse(bookDb.getBookMark(index,null))
+            var data = bookDb.getBookMark(index,(data) =>{
+              this.bookMark = JSON.parse(data)
+            })
+
+          })
+          console.log("aaaa",this.bookMark);
+        }
+        else
+        {//从本地获取书签
+          let t_bookMark = localStorage.getItem("<"+this.userName + "><" +this.bookName+">-BookMark")
+          if(t_bookMark ===null)
+          {
+              //未找打则不处理
+            console.log("未找到"+"<"+this.userName + "><" +this.bookName+">'s BookMark")
+          }
+          else{
+            this.bookMark = JSON.parse(localStorage.getItem("<"+this.userName + "><" +this.bookName+">-BookMark",{}))
+          }
+        }
+      },
+      loadBookNote(){//加载批注
+        if(this.loginFlag)
+        {
+
+        }
+        else
+        {
+
+        }
       },
       prevPage() {
         if (this.rendition) {
@@ -388,12 +472,28 @@
       addmark() {
         this.bookMark.unshift({
           id: '' + new Date().getTime(), // TODO
-          cfi: this.currentLocationCfi,
+          cfi: this.rendition.currentLocation().start.cfi,
           name: "书签[" + this.curPage + "]", // TODO
           createTime: new Date().getTime(),
           posY: 1 // TODO
         })
-        console.log("bbbb", this.bookMark)
+        //console.log("bbbb", this.bookMark)
+        if(this.loginFlag)
+        {//登陆，存储到indexDB数据库
+          var value = {
+            'UserName': this.userName,
+            'BookName': this.bookName,
+            'index':[this.userName,this.bookName],
+            'BookMark': JSON.stringify(this.bookMark)
+          }
+          bookDb.openDB(bookDb.DB_NAME,bookDb.BOOKMARK_OBJECT,0,()=>{
+            bookDb.addBookMark(value,null)
+          })
+        }
+        else
+        {//未登陆存储至本地
+          localStorage.setItem("<"+this.userName + "><" +this.bookName+">-BookMark",JSON.stringify(this.bookMark))
+        }
       },
       gotoMark(item) {
         this.open = false
@@ -462,19 +562,73 @@
           })
         }
       },
-      openFile() {
-//        var inputObj = document.createElement('input')
-//        inputObj.setAttribute('name', 'filename')
-//        inputObj.click()
-//        inputObj.value
-//
-//        //this.bookList.push(inputObj.value)
+      openFile(item) {
+        inputObj.click()
+        this.selectBook = document.getElementById('fileInput')
+        console.log("cccc", this.selectBook.value)
+        //tt.click()
+        //tt.submit()
+      },
+      loadLocalBook() {
+        BOOK_URL = 'static/木小瓜的简历.epub'
+        var path = require("path");
+        var fs = require("fs");
+        var path ='E:/'
+        fs.readdir(path, function (err, files) {
+          var dirs = [];
+          (function iterator(i) {
+            if (i == files.length) {
+              console.log(dirs);
+              return;
+            }
+            fs.stat(path.join(pathName, files[i]), function (err, data) {
+              if (data.isFile()) {
+                dirs.push(files[i]);
+              }
+              iterator(i + 1);
+            });
+          })(0);
+        });
+      },
+      addFile() {
+        inputObj.click()
+        var name = document.getElementById('fileInput').value
+        console.log("cccc", name)
+        if (name.length > 0) {
+          var file_ext = name.substring(name.lastIndexOf(".") + 1);
+          if (file_ext == "epub") {
+            this.bookList.push({
+              name: name,
+              path: name,
+            })
+          }
+          else {
+            alert("文件格式不正确。请选择epub文件");
+            return;
+          }
+        }
+        console.log("bbbbb", this.bookList)
+      },
+      getPath(obj) {
+        if (obj) {
 
+          if (window.navigator.userAgent.indexOf("MSIE") >= 1) {
+            console.log("IE")
+            obj.select();
 
-        var selectedFile = document.getElementById('files').files[0];
-        var name = selectedFile.name;//读取选中文件的文件名
-        var size = selectedFile.size;//读取选中文件的大小
-        console.log("文件名:" + name + "大小:" + size);
+            return document.selection.createRange().text;
+          }
+
+          else if (window.navigator.userAgent.indexOf("Firefox") >= 1) {
+            console.log("FF")
+            if (obj.files) {
+
+              return obj.files.item(0).getAsDataURL();
+            }
+            return obj.value;
+          }
+          return obj.value;
+        }
       },
       openFileIIs() {
         try {
@@ -490,18 +644,29 @@
           console.log(e)
         }
       },
+      onProgressChange(progress) {
+        const percentage = progress / 100
+        const location = percentage > 0 ? this.locations.cfiFromPercentage(percentage) : 0
+        this.rendition.display(location)
+      },
+      onProgressInput(progress) {
+        const percentage = progress / 100
+        const location = percentage > 0 ? this.locations.cfiFromPercentage(percentage) : 0
+        this.rendition.display(location)
+
+      },
     },
 
-    onProgressChange(progress) {
-      const percentage = progress / 100
-      const location = percentage > 0 ? this.locations.cfiFromPercentage(percentage) : 0
-      this.rendition.display(location)
-    },
+
     mounted() {
-      this.showEpub()
-      //this.init()
+      this.init()
+      this.loadBook()
       this.initEvent()
-    }
+    },
+    destroyed() {
+      this.book && this.book.destroy()
+      document.removeEventListener('keydown', this.onKeyDown)
+    },
   }
 </script>
 
@@ -559,8 +724,8 @@
         height: 100%;
         z-index: 50;
         .left {
-          width: px2rem(100)
-        }
+           width: px2rem(100)
+         }
         .right {
           width: px2rem(100)
         }
